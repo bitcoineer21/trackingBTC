@@ -249,11 +249,10 @@
         <div class="bar-track"><div class="bar-fill bar-btc" id="halving-bar" style="width:0%"></div></div>
       </div>
       <div style="margin-top:8px;">
-        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px;">
-          <span style="font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;">Halving Progress</span>
-          <span style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:var(--blue);" id="halving-days">–</span>
-        </div>
-        <div style="font-size:11px;color:var(--muted2);text-align:right;" id="halving-date">–</div>
+        <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:4px;">Halving Progress</div>
+        <div style="font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:var(--blue);white-space:nowrap;margin-bottom:4px;" id="halving-days">–</div>
+        <div style="font-size:12px;color:var(--muted2);" id="halving-date">–</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:1px;" id="halving-avg"></div>
       </div>
     </div>
   </div>
@@ -309,6 +308,19 @@
     <div class="bar-wrap">
       <div class="bar-labels"><span>Period start</span><span id="diff-pct">–%</span><span>Adjustment</span></div>
       <div class="bar-track"><div class="bar-fill bar-diff" id="diff-bar" style="width:0%"></div></div>
+    </div>
+    <div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--border);">
+      <div style="font-size:11px;color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:6px;">Past Adjustments</div>
+      <div id="diff-history-rows">
+        <div style="display:flex;justify-content:space-between;padding:3px 0;">
+          <span style="font-size:11px;color:var(--muted2);" id="diff-hist-date-0">–</span>
+          <span style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;" id="diff-hist-chg-0">–</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:3px 0;">
+          <span style="font-size:11px;color:var(--muted2);" id="diff-hist-date-1">–</span>
+          <span style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;" id="diff-hist-chg-1">–</span>
+        </div>
+      </div>
     </div>
   </div>
   </div>
@@ -865,9 +877,12 @@ async function fetchBlock() {
         const halvingDays = Math.round(halvingMs / 86400000);
         const halvingDate = new Date(Date.now() + halvingMs);
         const avgMinutes = (avgBlockMs / 60000).toFixed(2);
-        document.getElementById('halving-days').textContent = halvingDays.toLocaleString('en-US') + ' days';
-        document.getElementById('halving-date').textContent = halvingDate.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'numeric'})
-          + ' (avg ' + avgMinutes + ' min/block)';
+        const halvingYears   = Math.floor(halvingDays / 365);
+        const halvingRemDays = halvingDays % 365;
+        document.getElementById('halving-days').textContent =
+          halvingYears + (halvingYears === 1 ? ' year ' : ' years ') + halvingRemDays + ' days';
+        document.getElementById('halving-date').textContent = halvingDate.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'numeric'});
+        document.getElementById('halving-avg').textContent  = 'avg ' + avgMinutes + ' min/block';
         return;
       }
     } catch(e){}
@@ -895,6 +910,34 @@ async function fetchDifficulty() {
     document.getElementById('diff-days').textContent = days + 'd ' + hours + 'h';
     const retargetDate = new Date(Date.now() + remainingMs);
     document.getElementById('diff-date').textContent = retargetDate.toLocaleDateString('en-GB', {day:'2-digit', month:'2-digit', year:'numeric'});
+
+    // Past adjustments: fetch last 2 retarget blocks directly
+    try {
+      const tip = parseInt(await (await fetch('https://mempool.space/api/blocks/tip/height')).text());
+      const r1h = Math.floor(tip / 2016) * 2016;       // e.g. 889,344
+      const r2h = r1h - 2016;                           // e.g. 887,328
+      const r3h = r2h - 2016;                           // needed for r2 difficulty change
+
+      const getBlock = async h => {
+        const hash = await (await fetch('https://mempool.space/api/block-height/' + h)).text();
+        return (await fetch('https://mempool.space/api/block/' + hash.trim())).json();
+      };
+
+      const [b1, b2, b3] = await Promise.all([getBlock(r1h), getBlock(r2h), getBlock(r3h)]);
+
+      const showRow = (i, block, prevBlock, height) => {
+        const date   = new Date(block.timestamp * 1000);
+        const change = prevBlock ? (block.difficulty - prevBlock.difficulty) / prevBlock.difficulty * 100 : 0;
+        const dateStr = date.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+        const chgEl  = document.getElementById('diff-hist-chg-'  + i);
+        const dateEl = document.getElementById('diff-hist-date-' + i);
+        if (dateEl) dateEl.textContent = dateStr;
+        if (chgEl)  { chgEl.textContent = (change >= 0 ? '+' : '') + change.toFixed(2) + '%'; chgEl.style.color = change >= 0 ? 'var(--green)' : 'var(--red)'; }
+      };
+
+      showRow(0, b1, b2, r1h);  // most recent retarget
+      showRow(1, b2, b3, r2h);  // one before
+    } catch(e) { console.warn('diff history blocks:', e.message); }
     // Hashrate und Difficulty aus mempool mining API
     try {
       const stats = await (await fetch('https://mempool.space/api/v1/mining/hashrate/3d')).json();
