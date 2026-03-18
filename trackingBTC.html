@@ -299,10 +299,12 @@
       <div class="card-label">Distance to ATH</div>
       <div><span class="ath-pct" id="ath-pct">–%</span></div>
       <div style="font-size:12px;color:var(--text);margin-top:4px;">ATH: <span id="ath-val">–</span> USD</div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:2px;"><span id="ath-val-eur">–</span> EUR</div>
       <div class="bar-wrap">
         <div class="bar-track" style="margin-top:6px;"><div class="bar-fill bar-btc" id="ath-bar" style="width:0%"></div></div>
       </div>
       <div class="ath-sub" style="color:var(--text)">Current Gap: <span id="ath-current">–</span> USD</div>
+      <div class="ath-sub" style="color:var(--muted2)"><span id="ath-current-eur">–</span> EUR</div>
     </div>
     <div class="card hl-green">
       <div class="card-label">Block Height</div>
@@ -337,6 +339,14 @@
       <div class="bar-track"><div class="bar-fill bar-btc" id="supply-bar" style="width:0%"></div></div>
     </div>
   </div>
+
+  <!-- EXCHANGE BALANCE -->
+  <a href="https://www.coinglass.com/Balance" target="_blank" style="display:block;text-decoration:none;margin-bottom:8px;">
+    <div class="card hl-red" style="text-align:center;">
+      <div style="font-size:13px;color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:5px;">🏦 Total BTC on Exchanges</div>
+      <div style="font-size:13px;color:var(--blue);">coinglass.com/Balance ↗</div>
+    </div>
+  </a>
 
 
   <!-- HASHRATE & DIFFICULTY -->
@@ -403,34 +413,25 @@
       <div class="bar-track"><div class="bar-fill bar-mem" id="mempool-bar" style="width:0%"></div></div>
     </div>
     <div class="mempool-grid" style="grid-template-columns:1fr 1fr 1fr 1fr;">
-      <div class="mem-item">
+      <div class="mem-item" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
         <div class="mem-val" id="mem-txcount">–</div>
         <div class="mem-label">Transactions</div>
       </div>
       <div class="mem-item" style="border:1px solid rgba(0,212,160,0.15);border-radius:8px;padding:6px 4px;background:rgba(0,212,160,0.04);">
         <div class="mem-val" id="mem-fee-low" style="color:var(--text);">–</div>
-        <div class="mem-label">🐢 Low<br>sat/vB</div>
+        <div class="mem-label">🐢 Low<br>sats/vB</div>
       </div>
       <div class="mem-item" style="border:1px solid rgba(0,212,160,0.2);border-radius:8px;padding:6px 4px;background:rgba(0,212,160,0.06);">
         <div class="mem-val" id="mem-fee-mid" style="color:var(--text);">–</div>
-        <div class="mem-label">⚡ Mid<br>sat/vB</div>
+        <div class="mem-label">⚡ Mid<br>sats/vB</div>
       </div>
       <div class="mem-item" style="border:1px solid rgba(247,147,26,0.3);border-radius:8px;padding:6px 4px;background:rgba(247,147,26,0.06);">
         <div class="mem-val" id="mem-fee-high" style="color:var(--text);">–</div>
-        <div class="mem-label">🚀 Prio<br>sat/vB</div>
+        <div class="mem-label">🚀 Prio<br>sats/vB</div>
       </div>
     </div>
   </div>
 
-  <!-- EXCHANGE BALANCE -->
-  <a href="https://www.coinglass.com/Balance" target="_blank" style="display:block;text-decoration:none;margin-bottom:8px;">
-    <div class="card hl-red" style="text-align:center;">
-      <div style="font-size:13px;color:var(--muted2);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:5px;">🏦 Total BTC on Exchanges</div>
-      <div style="font-size:13px;color:var(--blue);">coinglass.com/Balance ↗</div>
-    </div>
-  </a>
-
-  <!-- FEAR & GREED INDEX -->
   <div class="section-title">😱 Fear & Greed Index</div>
   <div class="card hl-btc" style="padding:14px;">
     <div style="display:flex;align-items:center;gap:16px;">
@@ -648,6 +649,7 @@ function badge(elId, pct) {
 
 let btcUsd=null, goldUsd=null, silverUsd=null, avgBlockMs=10*60*1000; // default 10min
 const BTC_ATH_USD = 126272; // ATH: 6. Oktober 2025
+const BTC_ATH_EUR = 106888; // ATH: 6. Oktober 2025 - historischer EUR-Wert
 const US_POP = 335000000;
 
 // ── BTC PRICES ───────────────────────────────────────────────────────────────
@@ -685,11 +687,14 @@ function updateAth() {
   if (!btcUsd) return;
   const pct = (btcUsd-BTC_ATH_USD)/BTC_ATH_USD*100;
   const gap = BTC_ATH_USD - btcUsd;
+  const gapEur = btcEur ? BTC_ATH_EUR - btcEur : gap * 0.92;
   const el = document.getElementById('ath-pct');
   el.textContent = (pct>=0?'+':'')+pct.toFixed(1)+'%';
   el.style.color = pct>=0?'var(--green)':'var(--btc)';
   document.getElementById('ath-val').textContent = fmt(BTC_ATH_USD);
+  document.getElementById('ath-val-eur').textContent = fmt(BTC_ATH_EUR);
   document.getElementById('ath-current').textContent = fmt(gap);
+  document.getElementById('ath-current-eur').textContent = fmt(gapEur);
   document.getElementById('ath-bar').style.width = Math.min(btcUsd/BTC_ATH_USD*100,100)+'%';
 }
 
@@ -1043,18 +1048,27 @@ async function fetchMempool() {
       fetch('https://mempool.space/api/mempool'),
       fetch('https://mempool.space/api/v1/fees/recommended')
     ]);
-    const [d, f] = await Promise.all([rm.json(), rf.json()]);
+    
+    const d = await rm.json();
+    const f = await rf.json();
+    
+    // Nutze die recommended Fees direkt
+    let lowFee = parseFloat(f.economyFee) || 0.1;
+    let midFee = parseFloat(f.halfHourFee) || 0.5;
+    let highFee = parseFloat(f.fastestFee) || 1;
+    
     const pct = Math.min(d.vsize / 300e6 * 100, 100);
     document.getElementById('mem-txcount').textContent = fmt(d.count);
     document.getElementById('mempool-bar').style.width = pct + '%';
     document.getElementById('mempool-pct').textContent = pct.toFixed(1) + '%';
 
-    // Always show exactly 1 decimal place
     const fmtFee = v => parseFloat(v).toFixed(1);
-    document.getElementById('mem-fee-low').textContent  = fmtFee(f.economyFee)  + ' sat/vB';
-    document.getElementById('mem-fee-mid').textContent  = fmtFee(f.halfHourFee) + ' sat/vB';
-    document.getElementById('mem-fee-high').textContent = fmtFee(f.fastestFee)  + ' sat/vB';
-  } catch(e){ console.warn('mempool:', e.message); }
+    document.getElementById('mem-fee-low').textContent  = fmtFee(lowFee);
+    document.getElementById('mem-fee-mid').textContent  = fmtFee(midFee);
+    document.getElementById('mem-fee-high').textContent = fmtFee(highFee);
+  } catch(e){ 
+    console.warn('mempool error:', e.message); 
+  }
 }
 
 async function fetchIndices() {
