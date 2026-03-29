@@ -137,6 +137,7 @@
   .bar-fill   { height: 100%; border-radius: 2px; transition: width 1s ease; }
   .bar-btc    { background: linear-gradient(90deg, var(--btc), var(--gold)); }
   .bar-mem    { background: linear-gradient(90deg, var(--green), #00ff88); }
+  .bar-gold   { background: linear-gradient(90deg, var(--gold), var(--btc)); }
   .bar-diff   { background: linear-gradient(90deg, var(--blue), #8888ff); }
   .bar-debt   { background: linear-gradient(90deg, var(--red), #ff8866); }
 
@@ -550,6 +551,17 @@
         <div style="font-size:13px;color:var(--muted2);margin-top:2px;">Grams of Gold per BTC</div>
       </div>
     </div>
+  </div>
+
+  <!-- BTC VS GOLD MARKET CAP -->
+  <div class="card hl-gold">
+    <div class="card-label">BTC vs Gold Market Cap</div>
+    <div style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--text);" id="btc-gold-ratio-mcap">–</div>
+    <div class="bar-wrap" style="margin-top:8px;">
+      <div class="bar-labels"><span>0%</span><span id="btc-gold-pct">–%</span><span>100%</span></div>
+      <div class="bar-track"><div class="bar-fill bar-gold" id="btc-gold-bar" style="width:0%"></div></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:4px;" id="btc-gold-info">–</div>
   </div>
 
 
@@ -1036,6 +1048,18 @@ async function fetchMarketCap() {
     document.getElementById('btc-mcap').textContent = fmtCap(btcMcap) + ' USD';
     document.getElementById('btc-dominance').textContent = dominance.toFixed(1) + '%';
     badge('mcap-change', chg24h);
+    
+    // BTC vs Gold Marktkapitalisierung
+    // Gold weltweite Marktkapitalisierung: ca. 33 Billionen USD (2026)
+    // Berechnung: ~216,000 Tonnen Gold * aktueller Goldpreis pro Ounce
+    const goldMcap = 33e12; // 33 Trillion USD (aktuell 2026)
+    const ratio = btcMcap / goldMcap;
+    const pct = Math.min(ratio * 100, 100);
+    
+    document.getElementById('btc-gold-ratio-mcap').textContent = (ratio * 100).toFixed(2) + '%';
+    document.getElementById('btc-gold-pct').textContent = pct.toFixed(1) + '%';
+    document.getElementById('btc-gold-bar').style.width = pct + '%';
+    document.getElementById('btc-gold-info').textContent = `BTC: ${fmtCap(btcMcap)} | Gold (2026): ${fmtCap(goldMcap)}`;
   } catch(e) { console.warn('marketcap:', e.message); }
 }
 
