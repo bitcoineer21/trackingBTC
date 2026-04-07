@@ -676,8 +676,16 @@ async function fetchBtc() {
     try {
       const r2 = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCUSDT');
       const d2 = await r2.json();
-      const p = parseFloat(d2.priceChangePercent);
-      badge('usd-change', p); badge('eur-change', p);
+      const pUsd = parseFloat(d2.priceChangePercent);
+      badge('usd-change', pUsd);
+      // Versuche auch EUR Änderung zu holen
+      try {
+        const r3 = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCEUR');
+        const d3 = await r3.json();
+        badge('eur-change', parseFloat(d3.priceChangePercent));
+      } catch(e) {
+        badge('eur-change', pUsd); // Fallback auf USD wenn EUR fehlschlägt
+      }
     } catch(e){}
     updateAth(); updateGoldBtc();   return;
   } catch(e){}
@@ -1050,16 +1058,18 @@ async function fetchMarketCap() {
     badge('mcap-change', chg24h);
     
     // BTC vs Gold Marktkapitalisierung
-    // Gold weltweite Marktkapitalisierung: ca. 33 Billionen USD (2026)
-    // Berechnung: ~216,000 Tonnen Gold * aktueller Goldpreis pro Ounce
-    const goldMcap = 33e12; // 33 Trillion USD (aktuell 2026)
+    // Gold weltweite Marktkapitalisierung: ~216,000 Tonnen Gold * aktueller Goldpreis pro Ounce
+    // 1 Unze = 31.1035 Gramm, 1 Tonne = 1,000,000 Gramm
+    // Also: 216,000 Tonnen = 216,000 * 1,000,000 / 31.1035 = ~6.95 Milliarden Unzen
+    const goldOunces = 216000 * 1000000 / 31.1035; // Gesamt Goldmenge in Unzen
+    const goldMcap = goldUsd ? goldOunces * goldUsd : 33e12; // Berechne dynamisch aus aktuellem Goldpreis
     const ratio = btcMcap / goldMcap;
     const pct = Math.min(ratio * 100, 100);
     
     document.getElementById('btc-gold-ratio-mcap').textContent = (ratio * 100).toFixed(2) + '%';
     document.getElementById('btc-gold-pct').textContent = pct.toFixed(1) + '%';
     document.getElementById('btc-gold-bar').style.width = pct + '%';
-    document.getElementById('btc-gold-info').textContent = `BTC: ${fmtCap(btcMcap)} | Gold (2026): ${fmtCap(goldMcap)}`;
+    document.getElementById('btc-gold-info').textContent = `BTC: ${fmtCap(btcMcap)} | Gold (aktuell): ${fmtCap(goldMcap)}`;
   } catch(e) { console.warn('marketcap:', e.message); }
 }
 
